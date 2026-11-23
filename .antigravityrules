@@ -1,0 +1,16 @@
+Project: Ticket Booking & Reservation System (Spring Boot 3 + Java 22 + PostgreSQL + React)
+
+Environment & Build Rules:
+- Always include Maven Wrapper files (mvnw, mvnw.cmd, .mvn/wrapper/maven-wrapper.properties) so the project builds via .\mvnw without requiring a global Maven installation.
+- Target Java 21 bytecode compatibility in pom.xml (compatible with local JDK 22).
+
+Backend Architecture Rules:
+- Use constructor injection everywhere (no field @Autowired).
+- Separate persistence entities from request/response DTOs (use Java records for DTOs).
+- Use Bean Validation (@Valid) on all controller inputs and handle all errors via a central @RestControllerAdvice returning structured JSON error responses.
+- Keep @Transactional boundaries strictly in the service layer, never on controllers.
+- Add concise comments explaining concurrency locking, deadlock prevention, and hold expiration logic.
+
+Frontend Rules:
+- React + TypeScript (Vite) in a /frontend directory with modular API client services.
+- Clean, light-themed, responsive UI.
