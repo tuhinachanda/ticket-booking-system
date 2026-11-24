@@ -43,6 +43,11 @@ public class EventService {
         String cleanCategory = StringUtils.hasText(category) ? category.trim() : null;
         String cleanSearch = StringUtils.hasText(search) ? search.trim() : null;
 
+        // If no filter is provided, fetch all events directly without expensive join & grouping
+        if (cleanCity == null && cleanCategory == null && cleanSearch == null) {
+            return eventRepository.findAll(pageable).map(this::mapToEventResponse);
+        }
+
         Page<Event> eventPage = eventRepository.searchEvents(cleanCity, cleanCategory, cleanSearch, pageable);
         return eventPage.map(this::mapToEventResponse);
     }

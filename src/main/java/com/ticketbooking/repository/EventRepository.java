@@ -22,24 +22,24 @@ public interface EventRepository extends JpaRepository<Event, Long> {
             SELECT DISTINCT e FROM Event e
             LEFT JOIN Show s ON s.event = e
             LEFT JOIN s.venue v
-            WHERE (:city IS NULL OR LOWER(v.city) = LOWER(:city))
-              AND (:category IS NULL OR LOWER(e.category) = LOWER(:category))
+            WHERE (COALESCE(CAST(:city AS string), '') = '' OR LOWER(v.city) = LOWER(CAST(:city AS string)))
+              AND (COALESCE(CAST(:category AS string), '') = '' OR LOWER(e.category) = LOWER(CAST(:category AS string)))
               AND (
-                :search IS NULL OR
-                LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')) OR
-                LOWER(e.description) LIKE LOWER(CONCAT('%', :search, '%'))
+                COALESCE(CAST(:search AS string), '') = '' OR
+                LOWER(e.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                LOWER(e.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
               )
         """,
         countQuery = """
             SELECT COUNT(DISTINCT e) FROM Event e
             LEFT JOIN Show s ON s.event = e
             LEFT JOIN s.venue v
-            WHERE (:city IS NULL OR LOWER(v.city) = LOWER(:city))
-              AND (:category IS NULL OR LOWER(e.category) = LOWER(:category))
+            WHERE (COALESCE(CAST(:city AS string), '') = '' OR LOWER(v.city) = LOWER(CAST(:city AS string)))
+              AND (COALESCE(CAST(:category AS string), '') = '' OR LOWER(e.category) = LOWER(CAST(:category AS string)))
               AND (
-                :search IS NULL OR
-                LOWER(e.title) LIKE LOWER(CONCAT('%', :search, '%')) OR
-                LOWER(e.description) LIKE LOWER(CONCAT('%', :search, '%'))
+                COALESCE(CAST(:search AS string), '') = '' OR
+                LOWER(e.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR
+                LOWER(e.description) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))
               )
         """
     )
