@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { UserBookingHistory } from '../types';
 import { bookingService } from '../services/bookingService';
-import { Calendar, MapPin, Ticket, Ban, RefreshCw, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Ticket, Ban, RefreshCw, AlertCircle, Hash, Sparkles } from 'lucide-react';
 
 interface MyBookingsProps {
   onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void;
@@ -11,8 +11,17 @@ export const MyBookings: React.FC<MyBookingsProps> = ({ onShowToast }) => {
   const [bookings, setBookings] = useState<UserBookingHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [justConfirmedId, setJustConfirmedId] = useState<number | null>(null);
 
   useEffect(() => {
+    // Check if there was a recently confirmed booking in this session
+    try {
+      const stored = sessionStorage.getItem('last_confirmed_booking_id');
+      if (stored) {
+        setJustConfirmedId(Number(stored));
+      }
+    } catch (_) {}
+
     loadBookings();
   }, []);
 
@@ -60,7 +69,7 @@ export const MyBookings: React.FC<MyBookingsProps> = ({ onShowToast }) => {
       <div className="my-bookings-header">
         <div>
           <h1 className="page-title">My Bookings & Reservations</h1>
-          <p className="page-subtitle">Track your tickets, view payment statuses, and manage cancellations</p>
+          <p className="page-subtitle">Track your confirmed tickets, view booking references, and manage cancellations</p>
         </div>
 
         <button className="refresh-btn" onClick={loadBookings} title="Refresh bookings list">
@@ -86,11 +95,29 @@ export const MyBookings: React.FC<MyBookingsProps> = ({ onShowToast }) => {
               booking.bookingStatus !== 'EXPIRED' &&
               dateObj.getTime() > Date.now() + 2 * 60 * 60 * 1000;
 
+            const isJustConfirmed = justConfirmedId === booking.bookingId;
+
             return (
-              <div key={booking.bookingId} className="booking-card">
+              <div
+                key={booking.bookingId}
+                className={`booking-card ${isJustConfirmed ? 'booking-card-highlight' : ''}`}
+              >
                 <div className="booking-header">
                   <div className="booking-main-info">
-                    <h3 className="booking-event-title">{booking.eventTitle}</h3>
+                    <div className="booking-title-row">
+                      <h3 className="booking-event-title">{booking.eventTitle}</h3>
+                      <span className="booking-ref-badge" title="Unique Booking Reference">
+                        <Hash size={13} />
+                        <span>BK-{booking.bookingId}</span>
+                      </span>
+                      {isJustConfirmed && (
+                        <span className="just-confirmed-pill">
+                          <Sparkles size={12} />
+                          <span>Just Confirmed</span>
+                        </span>
+                      )}
+                    </div>
+
                     <div className="booking-meta-row">
                       <div className="meta-badge">
                         <MapPin size={14} />
@@ -103,6 +130,7 @@ export const MyBookings: React.FC<MyBookingsProps> = ({ onShowToast }) => {
                             weekday: 'short',
                             month: 'short',
                             day: 'numeric',
+                            year: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
@@ -151,9 +179,10 @@ export const MyBookings: React.FC<MyBookingsProps> = ({ onShowToast }) => {
                       className="cancel-booking-btn"
                       onClick={() => handleCancel(booking.bookingId, booking.showStartTime)}
                       disabled={cancellingId === booking.bookingId}
+                      title="Cancel this booking and receive a full refund"
                     >
                       <Ban size={16} />
-                      <span>{cancellingId === booking.bookingId ? 'Cancelling...' : 'Cancel Booking'}</span>
+                      <span>{cancellingId === booking.bookingId ? 'Cancelling...' : 'Cancel Booking & Refund'}</span>
                     </button>
                   )}
 

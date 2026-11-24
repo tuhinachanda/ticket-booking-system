@@ -3,21 +3,27 @@ import type { BookingResponse, Event, Seat, Show } from '../types';
 import { showService } from '../services/showService';
 import { bookingService } from '../services/bookingService';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, RefreshCw, ShoppingCart, Info, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, RefreshCw, ShoppingCart, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface SeatGridProps {
   show: Show;
   event: Event;
+  activeBooking: BookingResponse | null;
   onBack: () => void;
   onBookingCreated: (booking: BookingResponse) => void;
+  onOpenPayment: () => void;
+  onHoldExpired: () => void;
   onShowToast: (msg: string, type: 'error' | 'success' | 'info') => void;
 }
 
 export const SeatGrid: React.FC<SeatGridProps> = ({
   show,
   event,
+  activeBooking,
   onBack,
   onBookingCreated,
+  onOpenPayment,
+  onHoldExpired,
   onShowToast,
 }) => {
   const { isAuthenticated, openAuthModal } = useAuth();
@@ -27,9 +33,45 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
   const [reserving, setReserving] = useState(false);
   const [conflictBanner, setConflictBanner] = useState<string | null>(null);
 
+  // Live hold countdown timer for active booking
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState<number>(() => {
+    if (!activeBooking?.holdExpiresAt) return 0;
+    const diff = Math.floor((new Date(activeBooking.holdExpiresAt).getTime() - Date.now()) / 1000);
+    return Math.max(0, diff);
+  });
+
   useEffect(() => {
     loadSeats();
   }, [show.id]);
+
+  // Keep hold timer synced with activeBooking
+  useEffect(() => {
+    if (!activeBooking?.holdExpiresAt || activeBooking.status !== 'PENDING') {
+      setHoldSecondsLeft(0);
+      return;
+    }
+
+    const calcDiff = () => {
+      const diff = Math.floor((new Date(activeBooking.holdExpiresAt!).getTime() - Date.now()) / 1000);
+      return Math.max(0, diff);
+    };
+
+    setHoldSecondsLeft(calcDiff());
+
+    const interval = setInterval(() => {
+      const remaining = calcDiff();
+      setHoldSecondsLeft(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        onHoldExpired();
+        onShowToast('Your seat hold lease has expired. Seats were released back to public availability.', 'error');
+        loadSeats();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeBooking]);
 
   const loadSeats = async () => {
     setLoading(true);
@@ -75,6 +117,12 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
   const selectedSeatsList = seats.filter((s) => selectedSeatIds.has(s.id));
   const totalPrice = selectedSeatsList.reduce((sum, s) => sum + Number(s.price), 0);
 
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleReserveAndPay = async () => {
     if (!isAuthenticated) {
       onShowToast('Please sign in or use demo accounts to reserve seats.', 'info');
@@ -95,6 +143,7 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
       const booking = await bookingService.createBooking(show.id, seatIdsArray);
       onShowToast('Seats reserved successfully! Complete payment before your 5-minute lease expires.', 'success');
       onBookingCreated(booking);
+      setSelectedSeatIds(new Set());
     } catch (err: any) {
       if (err.response?.status === 409) {
         // Double-booking conflict rule:
@@ -121,8 +170,39 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
     minute: '2-digit',
   });
 
+  const hasActiveHoldForThisShow =
+    activeBooking &&
+    activeBooking.showId === show.id &&
+    activeBooking.status === 'PENDING' &&
+    holdSecondsLeft > 0;
+
   return (
     <div className="seat-grid-container">
+      {/* Active Hold Countdown Banner */}
+      {hasActiveHoldForThisShow && (
+        <div className="active-hold-bar">
+          <div className="active-hold-info">
+            <Clock size={20} className="hold-clock-pulse" />
+            <div>
+              <span className="hold-bar-title">Active Seat Hold in Progress</span>
+              <p className="hold-bar-desc">
+                Seats: <strong>{activeBooking.seats.map((s) => `${s.seatRow}${s.seatNumber}`).join(', ')}</strong> • Total: <strong>${Number(activeBooking.totalAmount).toFixed(2)}</strong>
+              </p>
+            </div>
+          </div>
+          <div className="active-hold-actions">
+            <div className="hold-countdown-pill">
+              <span className="pill-label">Expires in:</span>
+              <span className="pill-digits">{formatTimer(holdSecondsLeft)}</span>
+            </div>
+            <button className="primary-btn complete-hold-btn" onClick={onOpenPayment}>
+              <span>Complete Payment</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="seat-grid-header">
         <button className="back-btn" onClick={onBack}>
@@ -146,8 +226,8 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
       {/* 409 Conflict Banner */}
       {conflictBanner && (
         <div className="conflict-alert-banner">
-          <Info size={20} />
-          <span>{conflictBanner} We refreshed the seat map for you. Please choose available seats.</span>
+          <AlertTriangle size={20} />
+          <span>{conflictBanner} We refreshed the seat map for you. Please choose from available seats.</span>
         </div>
       )}
 
