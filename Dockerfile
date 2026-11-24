@@ -20,9 +20,12 @@ USER appuser
 
 COPY --from=builder /workspace/target/*.jar app.jar
 
+ENV SPRING_PROFILES_ACTIVE=prod
+ENV PORT=8080
+
 EXPOSE 8080
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/v3/api-docs || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/v3/api-docs || exit 1
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod} -jar app.jar"]

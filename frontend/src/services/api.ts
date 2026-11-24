@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+// Read backend API URL from environment variable, falling back to local backend URL
+const envUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8080').trim().replace(/\/+$/, '');
+const baseURL = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
